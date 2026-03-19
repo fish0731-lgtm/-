@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小龍跳跳遊戲</title>
+    <style>
+        /* 遊戲畫面樣式 */
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 600px;
+            height: 200px;
+            border-bottom: 2px solid #555;
+            background-color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 小龍樣式 */
+        #dino {
+            width: 40px;
+            height: 40px;
+            background-color: #4CAF50; /* 綠色小龍 */
+            position: absolute;
+            bottom: 0;
+            left: 50px;
+            border-radius: 5px;
+        }
+
+        /* 尖刺樣式 */
+        .cactus {
+            width: 20px;
+            height: 40px;
+            background-color: #FF5722; /* 橘紅色尖刺 */
+            position: absolute;
+            bottom: 0;
+            right: -20px;
+        }
+
+        /* 跳躍動畫 */
+        .animate-jump {
+            animation: jump 0.5s linear;
+        }
+
+        @keyframes jump {
+            0% { bottom: 0; }
+            30% { bottom: 100px; }
+            70% { bottom: 100px; }
+            100% { bottom: 0; }
+        }
+
+        /* 分數顯示 */
+        #score {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 20px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="score">分數: 0</div>
+        <div id="dino"></div>
+    </div>
+
+    <script>
+        const dino = document.getElementById("dino");
+        const container = document.getElementById("game-container");
+        const scoreElement = document.getElementById("score");
+        let score = 0;
+        let isGameOver = false;
+
+        // 跳躍邏輯
+        function jump() {
+            if (!dino.classList.contains("animate-jump")) {
+                dino.classList.add("animate-jump");
+                setTimeout(() => {
+                    dino.classList.remove("animate-jump");
+                }, 500);
+            }
+        }
+
+        // 監聽空白鍵
+        document.addEventListener("keydown", (event) => {
+            if (event.code === "Space") {
+                if (isGameOver) {
+                    location.reload(); // 遊戲結束後按空白鍵重新開始
+                } else {
+                    jump();
+                }
+            }
+        });
+
+        // 產生尖刺
+        function createCactus() {
+            if (isGameOver) return;
+
+            const cactus = document.createElement("div");
+            cactus.classList.add("cactus");
+            container.appendChild(cactus);
+
+            let cactusPos = 600;
+            
+            // 尖刺移動邏輯
+            let moveInterval = setInterval(() => {
+                if (isGameOver) {
+                    clearInterval(moveInterval);
+                    return;
+                }
+
+                cactusPos -= 5; // 移動速度
+                cactus.style.left = cactusPos + "px";
+
+                // 碰撞偵測
+                let dinoBottom = parseInt(window.getComputedStyle(dino).getPropertyValue("bottom"));
+                
+                if (cactusPos > 50 && cactusPos < 90 && dinoBottom <= 40) {
+                    isGameOver = true;
+                    alert("遊戲結束！你的分數是: " + score);
+                    clearInterval(moveInterval);
+                }
+
+                // 移除跑出畫面的尖刺並加分
+                if (cactusPos < -20) {
+                    clearInterval(moveInterval);
+                    container.removeChild(cactus);
+                    score++;
+                    scoreElement.innerText = "分數: " + score;
+                }
+            }, 20);
+
+            // 隨機生成下一個尖刺的時間 (1.5秒 ~ 3秒)
+            let nextCactusTime = Math.random() * (3000 - 1500) + 1500;
+            setTimeout(createCactus, nextCactusTime);
+        }
+
+        // 啟動遊戲
+        createCactus();
+    </script>
+</body>
+</html>
