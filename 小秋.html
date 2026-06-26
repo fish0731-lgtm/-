@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>小秋的冒險日記 - 冒險夥伴 AI</title>
+    <style>
+        /* 原有樣式保持不變 */
+        :root { 
+            --accent: #ff8c00; 
+            --bg: #fdf5e6;    
+            --panel: rgba(255, 255, 255, 0.8);
+            --chat-bg: #ffffff;
+        }
+        body { margin: 0; background: var(--bg); color: #444; font-family: 'Microsoft JhengHei', sans-serif; height: 100vh; display: flex; overflow: hidden; }
+        .container { display: flex; width: 100%; height: 100%; padding: 20px; box-sizing: border-box; gap: 20px; }
+        .char-section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .char-img { max-height: 80vh; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1)); border-radius: 20px; }
+        .ui-panel { position: absolute; top: 10px; left: 10px; background: var(--panel); padding: 15px; border-radius: 15px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .chat-section { width: 400px; background: var(--chat-bg); border-radius: 25px; display: flex; flex-direction: column; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 12px 18px; border-radius: 20px; max-width: 85%; font-size: 15px; line-height: 1.5; }
+        .msg.ai { background: #fff9e6; align-self: flex-start; border: 2px solid #ffe4b5; color: #8b4513; }
+        .msg.user { background: #ff8c00; color: white; align-self: flex-end; }
+        .input-area { padding: 20px; display: flex; gap: 10px; border-top: 1px solid #eee; }
+        input { flex: 1; background: #fff; border: 2px solid #ffe4b5; border-radius: 25px; color: #333; padding: 10px 20px; outline: none; transition: border 0.3s; }
+        input:focus { border-color: var(--accent); }
+        button { background: var(--accent); border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; color: white; font-weight: bold; transition: 0.3s; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+
+        /* 合成器控制按鈕 */
+        .synth-btn {
+            margin-top: 10px;
+            font-size: 11px;
+            background: #20c997;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="char-section">
+        <div class="ui-panel">
+            <div id="time-info">🕒 冒險準備中...</div>
+            <button onclick="updateSkin()" style="margin-top:10px; font-size:11px;">✨ 變更裝備</button>
+            <br>
+            <button id="music-toggle" class="synth-btn" onclick="toggleSynth()">🎵 啟動冒險音樂</button>
+        </div>
+        <img class="char-img" src="C:/Users/User/Desktop/產物/遊戲/小秋簡單/秋.jpg">
+    </div>
+    <div class="chat-section">
+        <div id="chat-box" class="chat-history">
+            <div class="msg ai">嗨嗨！我是小秋，哥哥今天想帶我去哪裡大冒險呢？</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="u-in" placeholder="跟小秋說點什麼..." onkeypress="if(event.key==='Enter') send()">
+            <button onclick="send()">冒險！</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 冒險合成器 (Web Audio API) ---
+    let audioCtx = null;
+    let isPlaying = false;
+    let nextNoteTime = 0;
+    let timerID = null;
+
+    // 簡單的冒險旋律 (音頻頻率)
+    const melody = [261.6, 293.7, 329.6, 349.2, 392.0, 329.6, 261.6, 392.0]; // C D E F G E C G
+    let currentNote = 0;
+
+    function playNote(freq, startTime) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'triangle'; // 溫暖的三角形波
+        osc.frequency.setValueAtTime(freq, startTime);
+        
+        gain.gain.setValueAtTime(0.1, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.5);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.5);
+    }
+
+    function scheduler() {
+        while (nextNoteTime < audioCtx.currentTime + 0.1) {
+            playNote(melody[currentNote], nextNoteTime);
+            nextNoteTime += 0.4; // 音符間隔
+            currentNote = (currentNote + 1) % melody.length;
+        }
+        timerID = setTimeout(scheduler, 50);
+    }
+
+    function toggleSynth() {
+        const btn = document.getElementById('music-toggle');
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        if (!isPlaying) {
+            isPlaying = true;
+            nextNoteTime = audioCtx.currentTime;
+            scheduler();
+            btn.innerText = "🔇 停止音樂";
+            btn.style.background = "#ff4d4d";
+        } else {
+            isPlaying = false;
+            clearTimeout(timerID);
+            btn.innerText = "🎵 啟動冒險音樂";
+            btn.style.background = "#20c997";
+        }
+    }
+
+    // --- 原有邏輯 ---
+    const KEY = "AIzaSyAQS8-_q_ahnUWK-SWA6J_EQG6n6h84Rhw";
+    let memory = [
+        { role: "user", parts: [{ text: "你是小秋，是小宥的妹妹。性格活潑、愛冒險、充滿好奇心。請叫我小宥或小魚弟哥哥，語氣要像一個可愛活潑的國小生妹妹。" }] },
+        { role: "model", parts: [{ text: "沒問題，小魚弟哥哥！小秋已經準備好要出發冒險了！" }] }
+    ];
+
+    async function send() {
+        const input = document.getElementById("u-in");
+        const text = input.value.trim();
+        if (!text) return;
+        append(text, "user");
+        input.value = "";
+        const loading = append("（小秋正在思考冒險計畫...）", "ai");
+        try {
+            memory.push({ role: "user", parts: [{ text: text }] });
+            const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=" + KEY, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: memory })
+            });
+            const data = await res.json();
+            const reply = data.candidates[0].content.parts[0].text;
+            loading.innerText = reply;
+            memory.push({ role: "model", parts: [{ text: reply }] });
+        } catch (e) {
+            loading.innerText = "冒險中斷了...";
+        }
+    }
+
+    function append(t, s) {
+        const b = document.getElementById("chat-box");
+        const d = document.createElement("div");
+        d.className = "msg " + s;
+        d.innerText = t;
+        b.appendChild(d);
+        b.scrollTop = b.scrollHeight;
+        return d;
+    }
+
+    function updateSkin() {
+        append("(系統：小秋換了一套舒服的冒險服裝！)", "ai");
+    }
+
+    document.getElementById("time-info").innerText = (new Date().getHours() >= 5 && new Date().getHours() < 17) ? "🌅 冒險的好天氣" : "🌙 營火晚會時間";
+</script>
+</body>
+</html>
