@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>小秋助教的音樂教室 - 冒險夥伴 AI</title>
+    <style>
+        :root { 
+            --accent: #ff8c00; 
+            --bg: #fdf5e6;    
+            --panel: rgba(255, 255, 255, 0.8);
+            --chat-bg: #ffffff;
+        }
+        body { margin: 0; background: var(--bg); color: #444; font-family: 'Microsoft JhengHei', sans-serif; height: 100vh; display: flex; overflow: hidden; }
+        .container { display: flex; width: 100%; height: 100%; padding: 20px; box-sizing: border-box; gap: 20px; }
+        .char-section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .char-img { max-height: 80vh; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1)); border-radius: 20px; }
+        .ui-panel { position: absolute; top: 10px; left: 10px; background: var(--panel); padding: 15px; border-radius: 15px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .chat-section { width: 400px; background: var(--chat-bg); border-radius: 25px; display: flex; flex-direction: column; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 12px 18px; border-radius: 20px; max-width: 85%; font-size: 15px; line-height: 1.5; }
+        .msg.ai { background: #fff9e6; align-self: flex-start; border: 2px solid #ffe4b5; color: #8b4513; }
+        .msg.user { background: #ff8c00; color: white; align-self: flex-end; }
+        .input-area { padding: 20px; display: flex; gap: 10px; border-top: 1px solid #eee; }
+        input { flex: 1; background: #fff; border: 2px solid #ffe4b5; border-radius: 25px; color: #333; padding: 10px 20px; outline: none; transition: border 0.3s; }
+        input:focus { border-color: var(--accent); }
+        button { background: var(--accent); border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; color: white; font-weight: bold; transition: 0.3s; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+
+        .synth-btn {
+            margin-top: 10px;
+            font-size: 11px;
+            background: #20c997;
+        }
+        .call-btn {
+            margin-top: 10px;
+            font-size: 11px;
+            background: #e83e8c;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="char-section">
+        <div class="ui-panel">
+            <div id="time-info">🎸 助教吉他調音中...</div>
+            <button class="call-btn" onclick="wotageiCall()">⚡ 御宅藝打 Call！</button>
+            <br>
+            <button id="music-toggle" class="synth-btn" onclick="toggleSynth()">🎵 播放搖滾吉他與應援</button>
+        </div>
+        <img class="char-img" src="C:/Users/User/Desktop/產物/遊戲/小秋簡單/秋.jpg" alt="小秋">
+    </div>
+    <div class="chat-section">
+        <div id="chat-box" class="chat-history">
+            <div class="msg ai">小魚老師哥哥！小秋助教已經把吉他跟螢光棒都準備好囉！今天上課要教大家什麼呢？還是要看小秋單獨 Solo 一段！</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="u-in" placeholder="跟小秋助教說點什麼..." onkeypress="if(event.key==='Enter') send()">
+            <button onclick="send()">出發！</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 吉他手小秋的音樂合成器 (Web Audio API) ---
+    let audioCtx = null;
+    let isPlaying = false;
+    let nextNoteTime = 0;
+    let timerID = null;
+
+    // 模擬搖滾/吉他風格的五聲音階旋律
+    const rockMelody = [293.7, 349.2, 392.0, 440.0, 523.3, 440.0, 392.0, 349.2]; // D F G A C A G F
+    let currentNote = 0;
+
+    function playNote(freq, startTime) {
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator(); // 雙振盪器模擬吉他的複音
+        const gain = audioCtx.createGain();
+        
+        // 使用鋸齒波(sawtooth)讓聲音帶有搖滾樂與吉他撥弦的清脆與微破音感
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(freq, startTime);
+        
+        // 稍微調音偏移，創造空間感
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(freq * 1.005, startTime);
+        
+        // 模擬快速撥弦的音量變化
+        gain.gain.setValueAtTime(0.08, startTime);
+        gain.gain.linearRampToValueAtTime(0.04, startTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.4);
+        
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(startTime + 0.4);
+        osc2.stop(startTime + 0.4);
+    }
+
+    function scheduler() {
+        while (nextNoteTime < audioCtx.currentTime + 0.1) {
+            playNote(rockMelody[currentNote], nextNoteTime);
+            // 每四個音符加快一次節奏，模擬搖滾打擊感
+            nextNoteTime += (currentNote % 4 === 3) ? 0.2 : 0.3; 
+            currentNote = (currentNote + 1) % rockMelody.length;
+        }
+        timerID = setTimeout(scheduler, 50);
+    }
+
+    function toggleSynth() {
+        const btn = document.getElementById('music-toggle');
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        if (!isPlaying) {
+            isPlaying = true;
+            nextNoteTime = audioCtx.currentTime;
+            scheduler();
+            btn.innerText = "🔇 停止搖滾";
+            btn.style.background = "#ff4d4d";
+        } else {
+            isPlaying = false;
+            clearTimeout(timerID);
+            btn.innerText = "🎵 播放搖滾吉他與應援";
+            btn.style.background = "#20c997";
+        }
+    }
+
+    // --- AI 對話邏輯 ---
+    // ⚠️ 記得將此處換成你另一個帳號的 API Key
+    const KEY = "AQ.Ab8RN6KWarQeoBwQ7q5zbwSc9VxsYqdtdxdj4sNyavLC7_KJug";
+    const MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + KEY;
+
+    // ✨ 重新設定小秋的人格特質
+    const systemPrompt = "你是小秋，今年9歲，是小魚老師（也可以叫他小宥或小魚弟哥哥）的親妹妹兼課堂助教。你的性格超級活潑、充滿好奇心。你除了是個天才吉他手以外，還是個資深的御宅藝（Wotagei）狂熱者，超級會打 call 應援（例如常說『OAD!』、『PPPH!』、或是使出羅曼史警報、烈火過度等招式）。請用一個可愛、活力十足、愛拿吉他、隨時想跳舞打 call 的國小生助教妹妹語氣回覆。";
+
+    let memory = [
+        { role: "user", parts: [{ text: systemPrompt }] },
+        { role: "model", parts: [{ text: "沒問題，小魚老師哥哥！小秋助教和小秋吉他手都準備就緒！OAD——預備——出發！" }] }
+    ];
+
+    async function send() {
+        const input = document.getElementById("u-in");
+        const text = input.value.trim();
+        if (!text) return;
+
+        append(text, "user");
+        input.value = "";
+        
+        const loading = append("（小秋助教正在瘋狂彈吉他＋熱血思考中...）", "ai");
+        
+        try {
+            memory.push({ role: "user", parts: [{ text: text }] });
+            
+            const res = await fetch(MODEL_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: memory })
+            });
+            
+            const data = await res.json();
+            
+            if (data.candidates && data.candidates[0].content.parts[0].text) {
+                const reply = data.candidates[0].content.parts[0].text;
+                loading.innerText = reply;
+                memory.push({ role: "model", parts: [{ text: reply }] });
+            } else {
+                loading.innerText = "嗚哇，吉他弦好像斷了！哥哥再跟小秋說一次話嘛！";
+            }
+        } catch (e) {
+            console.error(e);
+            loading.innerText = "打 call 太用力，網路線被小秋踩斷了啦...";
+        }
+    }
+
+    function append(t, s) {
+        const b = document.getElementById("chat-box");
+        const d = document.createElement("div");
+        d.className = "msg " + s;
+        d.innerText = t;
+        b.appendChild(d);
+        b.scrollTop = b.scrollHeight;
+        return d;
+    }
+
+    // 趣味互動：御宅藝打 call 按鈕
+    const callMoves = [
+        "小秋使出了【羅曼史警報】，現場螢光棒瘋狂揮舞！🔥",
+        "小秋一邊彈吉他，一邊大喊：『Hi! Hi! Hi! Hi! OAD!』",
+        "小秋在台下幫小魚老師完成了超完美的【烈火過度】應援！✨",
+        "小秋高舉橘色螢光棒：『Tiger! Fire! Cyber! Fiber! 🐯🔥』"
+    ];
+    function wotageiCall() {
+        const randomMove = callMoves[Math.floor(Math.random() * callMoves.length)];
+        append(`(系統應援：${randomMove})`, "ai");
+    }
+
+    // 狀態列時間
+    document.getElementById("time-info").innerText = (new Date().getHours() >= 5 && new Date().getHours() < 17) ? "🌅 助教早點名！今天也要熱血彈吉他" : "🌙 練舞與吉他夜間特訓時間！";
+</script>
+</body>
+</html>
